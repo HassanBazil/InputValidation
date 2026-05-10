@@ -1,7 +1,10 @@
 # Input Validation
 ---
 ## Overview
-Yes you can use regex, but should you?
+Input validation is used to solve the problem that complex code's correctness is hard to verify. Parsers are really complex so you want to protect them using a much simpler code.
+
+- Don't fix data if security matters.
+- Yes you can use regex, but should you? No, regex is hard you want simple.
 ---
 ## Origin Validation
 - IP address verification
@@ -48,3 +51,9 @@ Does it make sense?
 - Uniqueness check
 - Dereferencing
 - TOCTOU locking
+---
+## Demo 1
+AI https://embracethered.com/blog/posts/2024/claude-hidden-prompt-injection-ascii-smuggling/
+---
+### Demo 2
+See code...
