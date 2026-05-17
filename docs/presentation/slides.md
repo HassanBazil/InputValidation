@@ -5,6 +5,12 @@ Input validation is used to solve the problem that complex code's correctness is
 
 - Don't fix data if security matters.
 - Yes you can use regex, but should you? No, regex is hard you want simple.
+- Validate all sources (file, config etc.)
+- Trade-off especially at semantic level cost of validation vs risk
+- Validate inputs that you processs/parse skip what you don't process
+- Know when to be careful
+    - complex input is where you can embed context several layer deeply
+
 ---
 ## Origin Validation
 - IP address verification
