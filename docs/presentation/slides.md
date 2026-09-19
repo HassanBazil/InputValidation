@@ -31,8 +31,8 @@ I personally struggled to answer the question that every security professional i
 It is nearly impossible to implement input validation perfectly. Input validation is a trade-off between application performance, security and development time. When you are looking at distributed systems. Today we try to give you a structured approach to find the right balance.
 ---
 ## Requirements
-- Should be a valid email address.
-- Should not crash the parser.
+- Should be a valid and existing email address.
+- Should not crash parsers.
 - The age of the person should be beleivable.
 - The service should greet the user if they are on the VIP list.
 - The service should accept all valid JSON in accordance to RFC TBD.
@@ -43,7 +43,7 @@ It is nearly impossible to implement input validation perfectly. Input validatio
 This doesn't seems crazy certainly better than for example the http5 specification.
 https://html.spec.whatwg.org
 
-Interesting observation performance optimisation was the root cause again....
+
 ---
 ## Is this valid or not?
 
@@ -72,10 +72,14 @@ graph TD
     G --> H[Semantic Validation]
 
     classDef phase fill:#4A90D9,stroke:#2C5F8A,color:white,font-weight:bold;
-    class A,B,C,D,E,F,G,H phase;
+    classDef selected fill:#4A90D9,stroke:#2C5F8A,color:red,font-weight:bold;
+    class B,C,D,E,F,G,H phase;
+    class A selected;
 ```
 :::note
-Order matters a lot.  Cardinal sins:
+Order matters a lot.  
+
+Cardinal sins:
 Chnaging the data and not revalidate the data propagated.
 Fixing the data especially if it is not revalidated as new data that is fixed.
 Looking at not desirable inputs.
@@ -84,19 +88,41 @@ Multiple data path with different validations.
 ---
 ## Origin Validation
 - IP address verification
-- Access key (token) authentication
+- Access key (JWT token) authentication
 - Verify source of the request (taint tags in distributed processing)
 - Message signing
+- Restrict URI or path 
 
 :::note
 **Input sometime comes from strange places like files** 
 You want to establish the provenance of the data.
-Sometime you have to do some work to figure out the origin. Sometime you have to fetch a file based on the path or URI. It is always a good idea to do full validation including semantic on the reference.
+Sometime you have to do some work to figure out the origin. Sometime you have to fetch a file based on the path or URI. It is always a good idea to do full validation including semantic on the references.
 
+If you need to validate token do it the right way with standard libraries used the right way!
 
 Be mindful of TOCTOU (change to symlink on the fly, or move directory for path traversal, attacker controlled server may change resource under URI or you may leak information to attacker controlled server while fetching resource)
 
 the attacker provides a path such as “a/b/c/../../etc/passwd”, and renames “a/b/c” to “a/b” while the open operation is in progress. https://go.dev/blog/osroot
+---
+
+Trick with a symlinked directory-> application only accepts files in a certain directory that the user has read write access create a symlink for the daemon to read any file...
+
+---
+```mermaid
+graph TD
+    A[Origin Checks] --> B[Size Checks]
+    B --> C[Normalisation]
+    C --> D[Size Checks]
+    D --> E[Lexical Validation]
+    E --> F[Syntax Validation]
+    F --> G[Parsing]
+    G --> H[Semantic Validation]
+
+    classDef phase fill:#4A90D9,stroke:#2C5F8A,color:white,font-weight:bold;
+    classDef selected fill:#4A90D9,stroke:#2C5F8A,color:red,font-weight:bold;
+    class A,B,C,E,F,G,H phase;
+    class D selected;
+```
 ---
 ## Size Validation
 - Is message reasonably long?
@@ -106,6 +132,26 @@ the attacker provides a path such as “a/b/c/../../etc/passwd”, and renames �
 Keep in mind size can change when you decode or normalise so a quick size check doesn't hurt after doing that operation.
 
 There are different length value depending on what you look at.  You can't tell how long is the buffer by looking at the length of the string encoding can change the legth.
+---
+A slide about how chacters is not equal to buffer size.
+
+https://github.com/golang/go/issues/41185
+---
+```mermaid
+graph TD
+    A[Origin Checks] --> B[Size Checks]
+    B --> C[Normalisation]
+    C --> D[Size Checks]
+    D --> E[Lexical Validation]
+    E --> F[Syntax Validation]
+    F --> G[Parsing]
+    G --> H[Semantic Validation]
+
+    classDef phase fill:#4A90D9,stroke:#2C5F8A,color:white,font-weight:bold;
+    classDef selected fill:#4A90D9,stroke:#2C5F8A,color:red,font-weight:bold;
+    class A,B,C,D,E,F,G,H phase;
+    class A selected;
+```
 ---
 ## Normalisation
 - what is normalisation and why we do it.
@@ -117,6 +163,26 @@ There are different length value depending on what you look at.  You can't tell 
 
 :::note
 Normalisation is the process of transforming data into a unified form so it's easier to compare and sort. Key is here that it is a transformation. Therefore it must be done before validation or the result need to be revalidated.
+---
+Code of how not to do normalisation
+https://www.sentinelone.com/vulnerability-database/cve-2021-43798/
+https://github.com/grafana/grafana/commit/c798c0e958d15d9cc7f27c72113d572fa58545ce
+---
+```mermaid
+graph TD
+    A[Origin Checks] --> B[Size Checks]
+    B --> C[Normalisation]
+    C --> D[Size Checks]
+    D --> E[Lexical Validation]
+    E --> F[Syntax Validation]
+    F --> G[Parsing]
+    G --> H[Semantic Validation]
+
+    classDef phase fill:#4A90D9,stroke:#2C5F8A,color:white,font-weight:bold;
+    classDef selected fill:#4A90D9,stroke:#2C5F8A,color:red,font-weight:bold;
+    class A,B,C,D,F,G,H phase;
+    class E selected;
+```
 ---
 ## Lexical Validation
 Content uses right characters and encoding?
@@ -130,7 +196,7 @@ This part reduces the opportunity of all kind of monkey business.
 
 Example:
 
-Remote code execution in beyondtrust privileged remote access.
+Remote code execution in beyondtrust privileged remote access. Interesting observation performance optimisation was the root cause again....
 
 The chain:
 https://seclists.org/oss-sec/2025/q1/140
@@ -140,16 +206,139 @@ https://www.rapid7.com/blog/post/ra-cve-2024-12356-analysis/
 
 JSON only allows UTF-8 now but it used to be UTF-16 and UTF-32 as well in RFC 4627
 ---
+```mermaid
+sequenceDiagram
+    participant attacker@{ "type" : "actor" } as Attacker
+    participant BT as BeyondTrust
+    participant PSQL as psql cli
+    participant DB as PostgreSQL@{ "type" : "database" }
+   
+
+    attacker->>BT: 1<br>aaaaaaaa-aaaa-aaaa-aaaaaaaaaaaa<br>0<br>-e \xC0'#59; \! touch /var/tmp/haxor  #35;
+    BT->>PSQL: Command in UTF-8: \xC0'#59; \! touch /var/tmp/haxor  #35;
+    PSQL->>PSQL: Validate and sanitize UTF-8 command using dbqoute: └'#59; \! touch /var/tmp/haxor  #35;
+    PSQL->>DB: Send sanitized UTF-8 message triggering CVE-2025-1094
+    DB-->>PSQL: Result
+    PSQL-->>BT: Response
+```
+:::note
+
+"\xC0&#59; \! touch /var/tmp/haxor #" will become the gskey variable that is being passed to PSQL
+
+---
+Code from psql focusing of optimisation
+
+````
+/*
+ * Escaping arbitrary strings to get valid SQL literal strings.
+ *
+ * Replaces "'" with "''", and if not std_strings, replaces "\" with "\\".
+ *
+ * length is the length of the source string.  (Note: if a terminating NUL
+ * is encountered sooner, PQescapeString stops short of "length"; the behavior
+ * is thus rather like strncpy.)
+ *
+ * For safety the buffer at "to" must be at least 2*length + 1 bytes long.
+ * A terminating NUL character is added to the output string, whether the
+ * input is NUL-terminated or not.
+ *
+ * Returns the actual length of the output (not counting the terminating NUL).
+ */
+static size_t
+PQescapeStringInternal(PGconn *conn,
+					   char *to, const char *from, size_t length,
+					   int *error,
+					   int encoding, bool std_strings)
+{
+	const char *source = from;
+	char	   *target = to;
+	size_t		remaining = length;
+
+	if (error)
+		*error = 0;
+
+	while (remaining > 0 && *source != '\0')
+	{
+		char		c = *source;
+		int			len;
+		int			i;
+
+		/* Fast path for plain ASCII */
+		if (!IS_HIGHBIT_SET(c)) // <--- [2]
+		{
+			/* Apply quoting if needed */
+                // ... snip...
+			/* Copy the character */
+                // ... snip...
+		}
+
+		/* Slow path for possible multibyte characters */
+		len = pg_encoding_mblen(encoding, source); // <--- [3]
+
+		/* Copy the character */
+            // ... snip...
+
+		/*
+		 * If we hit premature end of string (ie, incomplete multibyte
+		 * character), try to pad out to the correct length with spaces. We
+		 * may not be able to pad completely, but we will always be able to
+		 * insert at least one pad space (since we'd not have quoted a
+		 * multibyte character).  This should be enough to make a string that
+		 * the server will error out on.
+		 */
+		if (i < len)
+		{
+			if (error)
+				*error = 1;
+			if (conn)
+				libpq_append_conn_error(conn, "incomplete multibyte character");
+			for (; i < len; i++)
+			{
+				if (((size_t) (target - to)) / 2 >= length)
+					break;
+				*target++ = ' ';
+			}
+			break;
+		}
+	}
+
+	/* Write the terminating NUL character. */
+	*target = '\0';
+
+	return target - to;
+}
+````
+
+---
+```mermaid
+graph TD
+    A[Origin Checks] --> B[Size Checks]
+    B --> C[Normalisation]
+    C --> D[Size Checks]
+    D --> E[Lexical Validation]
+    E --> F[Syntax Validation]
+    F --> G[Parsing]
+    G --> H[Semantic Validation]
+
+    classDef phase fill:#4A90D9,stroke:#2C5F8A,color:white,font-weight:bold;
+    classDef selected fill:#4A90D9,stroke:#2C5F8A,color:red,font-weight:bold;
+    class A,B,C,D,E,G,H phase;
+    class F selected;
+```
+---
 ## Syntax Validation
-Is the format right, can I understand the input?
-- JSON double property check
+Is the format right, can I read the input?
+- Do JSON has duplicate property?
 - JSON depth limit
 - JSON key case normalisation
 - JSON Schema validation if you have a schema
 - JSON extra property during deserialization
+- Large number with ambigious decoding
+- Unexpected support for comments
+- value without qoutes
 - Email address should adhere to the standard 
 - Use `JSON.Valid()` to verify structure
-- Non standard extensions i.e. comments
+- Non standard extensions i.e. comments, data types
 
 
 :::note
@@ -175,6 +364,24 @@ A few valid one:
 user+subaddress@example.org
 user@[IPv6:2001:db8::1]
 ---
+Couchdb code
+---
+```mermaid
+graph TD
+    A[Origin Checks] --> B[Size Checks]
+    B --> C[Normalisation]
+    C --> D[Size Checks]
+    D --> E[Lexical Validation]
+    E --> F[Syntax Validation]
+    F --> G[Parsing]
+    G --> H[Semantic Validation]
+
+    classDef phase fill:#4A90D9,stroke:#2C5F8A,color:white,font-weight:bold;
+    classDef selected fill:#4A90D9,stroke:#2C5F8A,color:red,font-weight:bold;
+    class A,B,C,D,E,F,H phase;
+    class G selected;
+```
+---
 ## Parsing
 
 Parsing is a pretty complex  
@@ -184,8 +391,31 @@ Implement JSON unmarshal using various libraries
 - json-iterator/go
 - GoJay
 - segmentio/encoding/json
+
 :::note
 Discussing parsers and their implementation is beyond the scope of this talk.  But know that performance matter a lot for most parsers so they often have performance optimisation that can lead to vulnerabilities. They are also very complex piece of code that are very hard to test. How worried you should be depends on what they need to parse. Inputs that have different context embeded in each other are notoriously hard to write securely. In modern days parsers are often generated based on the inputs grammar making them more robust, but they are still exposed to ambiguity in grammars.
+
+Use the same validation library as the parser!!!!!!
+Don't assume test sometime library support non standard features like comments.
+---
+DEMO! add comment to json , a path, large number, value without qoute
+---
+---
+```mermaid
+graph TD
+    A[Origin Checks] --> B[Size Checks]
+    B --> C[Normalisation]
+    C --> D[Size Checks]
+    D --> E[Lexical Validation]
+    E --> F[Syntax Validation]
+    F --> G[Parsing]
+    G --> H[Semantic Validation]
+
+    classDef phase fill:#4A90D9,stroke:#2C5F8A,color:white,font-weight:bold;
+    classDef selected fill:#4A90D9,stroke:#2C5F8A,color:red,font-weight:bold;
+    class A,B,C,D,E,F,G phase;
+    class H selected;
+```
 ---
 ## Semantic Validation
 Does it make sense?
@@ -202,7 +432,7 @@ Does it make sense?
 - TOCTOU locking
 
 :::note
-Semantic is when you connect the world to your input...verify if the email exist, check if the address exist and if is residential etc. This is where your domain model comes in if you have one.
+Semantic is when you connect the world to your input...verify if the email exist, check if the address exist and if is residential etc. This is where your domain model comes in if you have one. Find the invariants the things that always hold true and code them as semantic checks.
 
 Sematic check is an art of finding the balance between security and speed. Sematic checks are often need an expensive trip to a database. 
 
@@ -212,16 +442,16 @@ Using validator library is encuraged. In many programming languages including go
 
 https://adehikmat-fr.medium.com/exploring-performance-trade-offs-in-go-reflective-vs-non-reflective-struct-validation-6c8c67c60826
 
-If you have a domain model with business rules you should use them as validation if they are not super expensive to run.
-
-Look at the big picture does the input make sense cross fields?
+If you have a domain model with business rules you should use them as validation if they are not super expensive to run.  Look at the big picture does the input make sense across fields? What are your invariants. If you have an in distribution problem AI can help you a lot.
 
 Cardinal sins:
 - Non idempotent validation (db write or other state change)
 - Don't revalidate internally unless you are planning to process
 - Don't scatter semantic validation across your code do it in a single place.
 ---
-## Contextual or Pragmatic validation
+Demo getting invariants using fable model for email.
+---
+## Contextual or Pragmatics validation
 
 Complete the following sentence
 Paris is to □ what London is to □
@@ -258,6 +488,7 @@ LangSec 2026
 - create a rule set to find patterns and not anti-patterns
     - pattern is the way to do validation, trying to write rules to all the ways how people can screw up is hard. Typically create antipattern rules for things you know exist. 
 - you can use AI to create your own static analysis rules it can be super helpful
+- you can use AI for invariants and semantic validation rules as well for in distribution objects.
 
 ---
 ## Validation in distributed applications
